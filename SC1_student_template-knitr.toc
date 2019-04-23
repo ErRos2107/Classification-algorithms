@@ -1,0 +1,9 @@
+\contentsline {section}{\numberline {1}Introduction}{1}
+\contentsline {section}{\numberline {2}Methods}{1}
+\contentsline {section}{\numberline {3}Section hierarchy}{5}
+\contentsline {subsection}{\numberline {3.1}subsection}{5}
+\contentsline {subsubsection}{\numberline {3.1.1}subsubsection}{5}
+\contentsline {paragraph}{paragraph}{5}
+\contentsline {subparagraph}{subparagraph}{6}
+\contentsline {section}{\numberline {4}OK, Go!}{6}
+\contentsline {section}{\numberline {A}Appendix, code}{6}

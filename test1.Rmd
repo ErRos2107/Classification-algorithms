@@ -1,0 +1,65 @@
+---
+title: ' Logistic Regression in R'
+author: "Eric Roseren"
+date: "4/23/2019"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading the data
+
+```{r}
+# Loading packages 
+require(pROC)
+# Loading the data 
+data(aSAH)
+head(aSAH)
+dim(aSAH)
+```
+
+```{r cars}
+## Selecting the exploratory variables X (gender and age) and the response variable  y (outcome)
+x.temp <-  aSAH[,3:4]
+x.numeric <- as.numeric(aSAH[,3])-1
+x.temp[,1] <- x.numeric # setting female = 1, male = 0
+# design matrix X
+
+id.vec <- rep(1,nrow(x.temp))
+X  <- as.matrix(cbind(id.vec,x.temp))
+
+y <- as.numeric(aSAH[,2])-1 # SETTING POOR OUTCOME = 1  and GOOD OUTCOME = 0
+```
+
+## Theoretical Approach 
+
+Linear regression can be seen as a special case of the generalized linear model:
+ 
+$g(\mu) = \beta_0 + \beta_1 X_1 +\beta_2 X_2+ \dots + \beta_p X_p + \epsilon $
+where $g(\mu)$ is called the link function and represent the transformation of the outcome that produces a linear relationship with the predictors. 
+
+For a logistic regression the link function used is called the logit link function:
+$ g(\mu) = log(\frac{\mu}{1-\mu})$
+
+In this lab, because we are modeling a binary variable, we use the Bernoulli distribution as the probability distribution of a random variable taking on either the value of 0 or the value of 1. There are two classes, and thus a binary model. 
+
+we will look at the effect of age and gender on the probability of SAH. We can treat the
+presence of SAH, say Y , conditionally on age and gender, say $\mathbf{X}$, as a Bernoulli random variable,
+i.e., $Y\mid X \sim Bernoulli(\pi)$. The probability mass function is:
+
+$Pr( Y=y\mid \mathbf{X})= \pi^y (1-\pi)^{1-y}$, $y \in {0,1}$
+
+The link between the distribution of Y and the linear predictor $\eta$ is provided by the link
+function g():
+$g(E[Y_i])=g(\mu_i)=\eta_i=\mathbf{X_i^T \beta} , \quad    i=1,\dots,n$
+
+We have therefore:
+\begin{align}
+log(\frac{\mu_i}{1-\mu_i}) &=\mathbf{X_i^T \beta} = \beta_0 +\beta_1 X_{i1} + \beta_2 X_{i2} , \quad i=1,\dots,n \\
+\mu_i &= \frac{e^{\mathbf{X_i^T \beta}}}{1+e^{\mathbf{X_i^T \beta}}} = \mathbb{E}[Y\mid X]
+\end{align}
+

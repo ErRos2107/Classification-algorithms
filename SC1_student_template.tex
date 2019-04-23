@@ -1,0 +1,231 @@
+\documentclass[letterpaper,12pt]{article}
+
+\usepackage{verbatim}  % for \verbatiminput of R code
+\usepackage{amsmath}  % for \eqref, and others
+
+% define the title, author, date
+\title{Stat 590 HW 1}
+\author{J.R.R.~Kurtosis}
+\date{\today}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{Sweave}
+\begin{document}
+\input{SC1_student_template-concordance}
+
+\begin{Schunk}
+\begin{Sinput}
+> # set global chunk options
+> #library(knitr)
+> #opts_chunk$set(fig.align='center', fig.show='hold', echo=TRUE, size='footnotesize', tidy=FALSE, include=TRUE, fig.width=5, fig.height=5, out.width='0.495\\textwidth')
+> #options(replace.assign=TRUE, width=70)
+> #set.seed(76543); # recompile will have same random numbers
+\end{Sinput}
+\end{Schunk}
+
+% generates the title
+\maketitle
+
+% insert the table of contents
+\tableofcontents
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+Here's the first paragraph of the section, which is not indented.
+As long as you keep lines together, they'll appear in the same paragraph.
+A blank line will separate paragraphs.
+
+Here's that new paragraph, this and every following paragraph is indented.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Methods}
+
+You can insert R code like this code chunk below, which will print the values,
+  and produce a plot.
+% A percent sign preceeds LaTeX comments.
+
+% knitr code chunk options are in the <<...>>=
+% Learn more here: http://yihui.name/knitr/options#chunk_options
+%   echo = whether to print source code in document
+%   size = size of the code text, if echoed
+%   include = whether to include chunk output in document
+%   fig.width = figure width in inches
+%   fig.height = figure height in inches
+%   out.width = scaling figure to fit on page (can be inches, or other, or relative to page size)
+% Many other optios are also available!
+\begin{Schunk}
+\begin{Sinput}
+> 1+1
+\end{Sinput}
+\begin{Soutput}
+[1] 2
+\end{Soutput}
+\begin{Sinput}
+> letters[5:10]
+\end{Sinput}
+\begin{Soutput}
+[1] "e" "f" "g" "h" "i" "j"
+\end{Soutput}
+\begin{Sinput}
+> LETTERS[11:15]
+\end{Sinput}
+\begin{Soutput}
+[1] "K" "L" "M" "N" "O"
+\end{Soutput}
+\begin{Sinput}
+> # Create a data.frame called df used for an example plot
+> df <- data.frame(x = rnorm(100))
+> df$y <- df$x + rnorm(100, mean = 2, sd = 0.1)
+> # plot the df data.frame
+> library(lattice)
+> xyplot(y ~ x, data = df,
++        main = "Title is up here", sub="Subtitle is down here",
++        xlab="x variable", ylab="y variable")
+\end{Sinput}
+\end{Schunk}
+
+Using \verb|echo=FALSE| will allow this next code chunk to be hidden,
+  but the resulting plot still displays.
+
+
+You can print an attractive table from R in a tabular environment.
+Below are the first 10 observations from df.
+
+% % tables are nicely produced using xtable and printing their output
+% % look at help for ?xtable and ?print.xtable for many options
+% <<texoutput, results='asis', echo=FALSE>>=
+% library(xtable) # for tables
+% xtab.out <- xtable(df[1:10,], digits=4)
+% print(xtab.out, floating=FALSE, math.style.negative=TRUE)
+% @
+
+You can also write inline expressions,
+  such as $\pi=3.14159265358979$, and 159867300 is a big number.
+The first values in the dataframe are $-0.2531$.
+
+Equations will take a little practice, but will be beautiful.
+The {\bf residual sum of squares (SS)} can be represented in many equivalent forms,
+ %===============
+\begin{eqnarray}
+\label{eq:sse1}
+  \textrm{SSE}(\hat{\beta})
+    & = &
+  \sum_{i=1}^{n} \{ y_{i} - (\hat{\beta}_{0} + \hat{\beta}_{1} x_{i 1} + \cdots + \hat{\beta}_{p} x_{ip}) \}^2
+\\ %===
+    & = &
+  \sum_{i=1}^{n} \{ y_{i} - \hat{\mu}_{i} \}^2
+\nonumber\\ %===
+    & = &
+  \sum_{i=1}^{n} \hat{e}_{i}^2
+\nonumber\\ %===
+\label{eq:epe}
+    & = &
+  \hat{e}^{\top} \hat{e}
+\\ %===
+    & = &
+  (y - \hat{\mu})^{\top} (y - \hat{\mu})
+\nonumber\\ %===
+    & = &
+  (y - \mathbf{X} \hat{\beta})^{\top} (y - \mathbf{X} \hat{\beta})
+  .
+\nonumber
+\end{eqnarray}
+ %===============
+Equations \eqref{eq:sse1} and \eqref{eq:epe} are equivalent, and the equation
+  reference numbers are connected to their labels in the equation array.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Section hierarchy}
+These last few chunks below show the hierarchy of sections, subsections, etc. \ldots
+
+Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{subsection}
+Lorem ipsum dolor sit amet\ldots
+
+Duis aute irure dolor in reprehenderit\ldots
+
+%%%%%%%%%%%%%%%%%%%%
+\subsubsection{subsubsection}
+Lorem ipsum dolor sit amet\ldots
+
+Duis aute irure dolor in reprehenderit\ldots
+
+%%%%%%%%%%
+\paragraph{paragraph}
+Lorem ipsum dolor sit amet\ldots
+
+Duis aute irure dolor in reprehenderit\ldots
+
+%%%%%
+\subparagraph{subparagraph}
+Lorem ipsum dolor sit amet\ldots
+
+Duis aute irure dolor in reprehenderit\ldots
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{OK, Go!}
+
+Now you're ready (with practice) to create reproducible research!
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Include code in an appendix, but just black-and-white
+%   the development version of knitr allows you to do this
+%   but not the current (2/2013) version
+\appendix     % switches section numbers to letters
+
+\section{Appendix, code}
+
+Appendix stuff here.
+
+\end{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Any LaTeX after \end{document} is ignored.
+R code chunks will still be processed.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  some examples of tables and graphics
+%
+
+The plot in Figure~\ref{fi:ed31b} on page~\pageref{fi:ed31b}
+ \begin{figure}[hbtp]
+\begin{center}
+\includegraphics[scale=.7]{ed31b}
+\caption{ed31b }
+\label{fi:ed31b}
+\end{center}
+ \end{figure}
+
+By Table~\ref{tab:31c} on page~\pageref{tab:31c}
+ \begin{table}[hbtp]
+\begin{center}
+\caption{31c}
+\label{tab:31c}
+\begin{tabular}{l @{-} l @{=} r l}
+\hline
+\multicolumn{2}{c|}{Factors} & \multicolumn{2}{c}{Response Time} \\
+$\bar{y}_{1.}$ & $\bar{y}_{2.}$ & 185.25 & $\star$ \\
+\hline
+\end{tabular}
+\end{center}
+ \end{table}
+
+ %===============
+\begin{eqnarray}
+    & = &
+\nonumber\\ %===
+    & = &
+\nonumber
+\end{eqnarray}
+ %===============
+
+\begin{description}
+   \item[]
+\end{description}
+
+1
