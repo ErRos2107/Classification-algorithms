@@ -1,0 +1,292 @@
+---
+title: ' Logistic Regression in R'
+author: "Eric Roseren"
+date: "4/23/2019"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading the data
+
+```{r}
+# Loading packages 
+require(pROC)
+# Loading the data 
+data(aSAH)
+head(aSAH)
+dim(aSAH)
+```
+
+```{r cars}
+## Selecting the exploratory variables X (gender and age) and the response variable  y (outcome)
+x.temp <-  aSAH[,3:4]
+x.numeric <- as.numeric(aSAH[,3])-1
+x.temp[,1] <- x.numeric # setting female = 1, male = 0
+# design matrix X
+
+id.vec <- rep(1,nrow(x.temp))
+X  <- as.matrix(cbind(id.vec,x.temp))
+
+y <- as.numeric(aSAH[,2])-1 # SETTING POOR OUTCOME = 1  and GOOD OUTCOME = 0
+
+# let's try without gender and replace gender by s100b
+
+X <- as.matrix(cbind(id.vec,aSAH[,c(4,6)]))
+```
+
+## Theoretical Approach 
+
+Linear regression can be seen as a special case of the generalized linear model:
+ 
+$$ g(\mu) = \beta_0 + \beta_1 X_1 +\beta_2 X_2+ \dots + \beta_p X_p + \epsilon $$
+where $$g(\mu)$$ is called the link function and represent the transformation of the outcome that produces a linear relationship with the predictors. 
+
+For a logistic regression the link function used is called the logit link function:
+$$g(\mu) = log(\frac{\mu}{1-\mu})$$
+
+In this lab, because we are modeling a binary variable, we use the Bernoulli distribution as the probability distribution of a random variable taking on either the value of 0 or the value of 1. There are two classes, and thus a binary model. 
+
+we will look at the effect of age and gender on the probability of SAH. We can treat the
+presence of SAH, say Y , conditionally on age and gender, say $\mathbf{X}$, as a Bernoulli random variable,
+i.e., $$Y\mid X \sim Bernoulli(\pi)$$. The probability mass function is:
+
+$$Pr( Y=y\mid \mathbf{X})= \pi^y (1-\pi)^{1-y}$$, $$y \in {0,1}$$
+
+The link between the distribution of Y and the linear predictor $$\eta$$ is provided by the link
+function g():
+$$g(E[Y_i])=g(\mu_i)=\eta_i=\mathbf{X_i^T \beta} , \quad    i=1,\dots,n$$
+
+We have therefore:
+\begin{align}
+log(\frac{\mu_i}{1-\mu_i}) &=\mathbf{X_i^T \beta} = \beta_0 +\beta_1 X_{i1} + \beta_2 X_{i2} , \quad i=1,\dots,n \\
+\mu_i &= \frac{e^{\mathbf{X_i^T \beta}}}{1+e^{\mathbf{X_i^T \beta}}} = \mathbb{E}[Y\mid X]
+\end{align}
+
+```{r}
+# sigmoid function
+f.lr.p <- function(x, beta) {
+# compute vector p of probabilities for logistic regression with logit link
+
+beta <- as.vector(beta)
+p <- exp(x %*% beta) / (1 + exp(x %*% beta))
+return(p)
+}
+```
+```{r}
+
+# Log likelihood function
+
+
+#llik.log.p <- function(x,y,beta) {
+# binomial log likelihood function
+# input: vectors: y = counts; m = sample sizes; p = probabilities
+# output: log-likelihood l, a scalar
+#m <- nrow(x)
+#p <- f.lr.p(x,beta)
+#llik <- t(y) %*% log(p) + t(1 - y) %*% log(1 - p)
+#return(llik)
+#}
+```
+```{r}
+llik.log.p <- function(x,y,beta) {
+llik <- sum(y*(x %*% beta))-sum(log(1+exp(x %*% beta)))
+return(llik)
+}
+```
+
+```{r}
+set.seed(10)
+beta <- runif(ncol(X),min=0, max=1)
+llik.log.p(X,y,beta)
+```
+### Maximum Likelihood Estimation 
+
+As opposed to linear regression, least square estimation cannot be used to estimate the $\beta$ coefficients. We therefore need to turn to numerical approximation to estimate the coefficients. The process is called Maximum Likelihood Estimation (MLE). 
+
+We first write the likelihood function $L(\mathbf{\pi;y)}$ defined as:
+
+\begin{align}
+L(\mathbf{\pi;y)} &= \prod_{i=1}^{n} \pi^{y_i} (1-\pi)^{1-y_i} \\
+&= \pi^{\sum_{i=1}^{n}y_i} (1-\pi)^{n-\sum_{i=1}^{n}y_i}
+\end{align}
+\\
+We call the value of $\mathbf{\pi}$ which maximises the likelihood $L(\mathbf{\pi;y)}$ the maximum likelihood
+estimate (m.l.e.) of $\mathbf{\pi}$, denoted by $\hat{\mathbf{\pi}}$ . $\hat{\mathbf{\pi}}$ depends on $\mathbf{y}$, as different observed data samples lead to different likelihood functions. The corresponding function of Y is called the maximum
+likelihood estimator and is also denoted by $\hat{\mathbf{\pi}}$.
+
+As log is a strictly increasing function, the value of $\mathbf{\pi}$ which maximises $L(\mathbf{\pi;y)}$ also
+maximises $log(L(\mathbf{\pi;y))}$. It is almost always easier to maximise $log(L(\mathbf{\pi;y))}$.
+
+Hence: 
+
+\begin{align}
+log(L(\mathbf{\pi;y)}) &= \sum_{i=1}^{n}y_i log(\pi)+ (n-\sum_{i=1}^{n}y_i) log(1-\pi) \\
+&= n \bar{y} log(\pi) + n(1-\bar{y})log(1-\pi)
+\end{align}
+
+Since $\pi = \frac{e^{\mathbf{X_i^T \beta}}}{1+e^{\mathbf{X_i^T \beta}}}$ we have that : 
+
+\begin{align}
+l(\pi ; y) &= log(L(\mathbf{\pi;y)}) \\
+&= \sum_{i=1}^{n} y_i (x_i^T \mathbf{\beta} -log(1+e^{x_i^T \mathbf{\beta}})) + (1-y_i) log(\frac{1}{1+e^{x_i^T \mathbf{\beta}}}) \\
+&= \sum_{i=1}^{n} y_i (x_i^T \mathbf{\beta}) - \sum_{i=1}^{n} log(1+e^{x_i^T \mathbf{\beta}})
+\end{align}
+
+We can then compute the gradient (or also called score function) of the log-likelihood: 
+
+$$ \bigtriangledown l(\mathbf{\beta} ) = \frac{\partial }{\partial \beta_k} l(\pi ; y) = u_k(\mathbf{\beta})$$ and then setting: 
+$$u_k(\hat{\mathbf{\beta}})=\mathbf{0}$$
+
+```{r}
+score.func <- function(x,y,beta){
+    n = nrow(x)
+    p <- f.lr.p(x,beta)
+    score <- t(x) %*% (y-p)
+    rownames(score) <- seq(1,ncol(x),by=1)
+    
+    return(score)
+}
+```
+```{r}
+score.func(X,y,beta)
+```
+Using 'optim' we can solve the optimisation problem and get the $\beta$ coefficients
+```{r}
+beta.init <- rep(0,3)
+
+model <- optim(beta.init, fn=llik.log.p,x=X, y=y, 
+              control=list(fnscale=-1, maxit=10000),method="BFGS")
+
+model
+
+```
+
+
+
+
+
+
+```{r}
+information.mat <- function(x,y,beta){
+    n <- nrow(x)
+    p <- f.lr.p(x,beta)
+    diag.w <- p*(1-p)
+    W <- matrix(rep(0,n*n),nrow=n,ncol=n)
+    diag(W) <- diag.w
+    hessian <- t(x) %*% W %*% x
+    
+    rownames(hessian) <- seq(1,ncol(x),by=1)
+    colnames(hessian) <- seq(1,ncol(x),by=1)
+    out <- data.matrix(hessian, rownames.force = NA)
+    return(out)
+}
+```
+```{r}
+information.mat(X,y,beta)
+solve(information.mat(X,y,beta))
+```
+
+```{r}
+# Fisher Scoring Algorithm 
+
+fisher.scoring <- function(x, y, beta.1, eps1 = 1e-6, eps2 = 1e-7, maxit = 50) {
+# Fisher's scoring routine for estimation of LR model 
+# Input:
+# x = n-by-(r+1) design matrix, where r is the number of explanatory variables
+# y = n-by-1 vector of success counts
+# beta.1 = (r+1)-by-1 vector of starting values for regression est
+# Iteration controlled by:
+# eps1 = absolute convergence criterion for beta
+# eps2 = absolute convergence criterion for log-likelihood
+# maxit = maximum allowable number of iterations
+# Output:
+# out = list containing:
+# beta.MLE = beta MLE
+# NR.hist = iteration history of convergence differences
+# beta.hist = iteration history of beta
+# beta.cov = beta covariance matrix (inverse Fisher's information matrix at MLE)
+# note = convergence note
+  
+m <- nrow(x) # number of examples
+beta.2 <- runif(n = length(beta.1),0,1) # init beta.2
+diff.beta <- sqrt(sum((beta.1 - beta.2)^2)) # Euclidean distance
+llike.1 <- llik.log.p(X,y,beta.1) # update loglikelihood
+llike.2 <- llik.log.p(X,y,beta.2) # update loglikelihood
+diff.like <- abs(llike.1 - llike.2) # diff
+if (is.nan(diff.like) || diff.like >1e9) {
+    diff.like <- 1e9 }    
+    
+i <- 1 # initial iteration index
+
+NR.hist <- data.frame(i, diff.beta, diff.like, llike.1, step.size = 1) # iteration history
+beta.hist <- matrix(beta.1, nrow = 1)
+    
+while (i <= maxit ){# &diff.beta > eps1 & diff.like > eps2) {
+    i <- i + 1 # increment iteration
+    
+    # update beta
+    beta.2 <- beta.1
+    variance.2 <- diag(as.vector( f.lr.p(X, beta.2) * (1 - f.lr.p(X, beta.2))))
+    score <- score.func(x,y,beta)
+    I.mat.2 <- information.mat(x,y,beta.2)
+    #I.inverse2 <- solve(t(x) %*% variance.2 %*% x) # Inverse information matrix
+    I.inverse.2 <- solve(I.mat.2)
+    increment <- I.inverse.2 %*% score 
+    
+    beta.1 <- beta.2 + increment # update current guess 
+    diff.beta <- sqrt(sum((beta.1 - beta.2)^2)) # Euclidean distance
+    llike.2 <- llike.1 # age likelihood value
+    llike.1 <-llik.log.p(x,y, beta.1)  # update loglikelihood
+    diff.like <- abs(llike.1 - llike.2) # diff
+    # iteration history
+    NR.hist <- rbind(NR.hist, c(i, diff.beta, diff.like, llike.1))
+    beta.hist <- rbind(beta.hist, matrix(beta.1, nrow = 1))
+    
+    
+    }
+# prepare output
+out <- list()
+out$beta.MLE <- beta.1
+out$iter <- i - 1
+out$NR.hist <- NR.hist
+out$beta.hist <- beta.hist
+#variance.1 <- diag(as.vector(f.lr.p(x, beta.1) * (1 - f.lr.p(x, beta.1))))
+I.mat.1 <- information.mat(x,y,beta.1)
+I.inverse.1 <- solve(I.mat.1) # Inverse information matrix
+out$beta.cov <- I.inverse.1
+
+if (is.nan(diff.beta) || diff.beta <1e-9) {
+    diff.beta <- 1e-9 }
+
+if (diff.beta <= eps1){ #& diff.like <= eps2) {
+  out$note <- paste("Absolute convergence of", eps1, "for betas and"
+  , eps2, "for log-likelihood satisfied")
+}
+if (i > maxit) {
+out$note <- paste("Exceeded max iterations of ", maxit)
+}
+return(out)
+}
+    
+```
+
+```{r}
+# initialise beta.1
+beta.1 <- runif(ncol(X),min=0, max=1)
+
+
+```
+
+```{r}
+fisher.scoring(X,y,beta.1,maxit = 10)
+
+```
+
+
+
+
