@@ -20,21 +20,32 @@ eleuk <- read.table("http://statacumen.com/teach/SC1/SC1_HW11_Exp-leuk.dat", hea
 ```
 
 ```{r}
-f.exp.l <- function(y, X, beta) {
+llik.log <- function(y, x, beta) {
 # Exponential regression, log-likelihood
 # standard linear model objects: y, X, beta
 # center the Xs
-#X[,2] <- X[,2] - mean(X[,2])
-#X <- X - matrix(rep(1, nrow(X)), ncol = 1) %*% colMeans(X)
+
+
 # exponential log-likelihood
-l <- sum(-(X %*% beta + y * exp(-X %*% beta)))
-return(l)
+llik <- sum(-(x %*% beta + y * exp(-x %*% beta)))
+return(llik)
+}
+```
+
+## Score function
+
+```{r}
+score.function <- function(x,y,beta){
+  mu <- exp(x %*% beta)
+  diag.mat <- diag(as.vector(1/mu))
+  score <- t(x) %*% diag.mat %*% (y-mu)
+  return(score)
 }
 ```
 
 
 ```{r}
-f.exp.NR <- function(X, y, beta.1, method = "F", eps1 = 1e-6, eps2 = 1e-7, maxit = 100) {
+fisher.scoring <- function(x, y, beta.1, method = "F", eps1 = 1e-6, eps2 = 1e-7, maxit = 100) {
 # NR/Fisher's Scoring routine for estimation of Exponential model (with line search)
 # Input:
 # X = n-by-(r+1) design matrix
@@ -54,8 +65,8 @@ f.exp.NR <- function(X, y, beta.1, method = "F", eps1 = 1e-6, eps2 = 1e-7, maxit
 # note = convergence note
 beta.2 <- rep(-Inf, length(beta.1)) # init beta.2
 diff.beta <- sqrt(sum((beta.1 - beta.2)^2)) # Euclidean distance
-llike.1 <- f.exp.l(y, X, beta.1) # update loglikelihood
-llike.2 <- f.exp.l(y, X, beta.2) # update loglikelihood
+llike.1 <- llik.log(y, x, beta.1) # update loglikelihood
+llike.2 <- llik.log(y, x, beta.2) # update loglikelihood
 diff.like <- abs(llike.1 - llike.2) # diff
 
 if (is.nan(diff.like)) { diff.like <- 1e9 }
@@ -70,10 +81,10 @@ while ((i <= maxit) & (diff.beta > eps1) & (diff.like > eps2)) {
         i <- i + 1 # increment iteration
         # update beta
         beta.2 <- beta.1 # old guess is current guess
-        mu.2 <- exp(X %*% beta.2) # mean
-        score.2 <- t(X) %*% diag(as.vector(1/mu.2)) %*% (y - mu.2) # score function, first derivative
-        ldd <- -t(X) %*% diag(as.vector(y / mu.2)) %*% X # second derivative
-        EI <- t(X) %*% X # expected information
+        mu.2 <- exp(x %*% beta.2) # mean
+        score.2 <- t(x) %*% diag(as.vector(1/mu.2)) %*% (y - mu.2) # score function, first derivative
+        ldd <- -t(x) %*% diag(as.vector(y / mu.2)) %*% x # second derivative
+        EI <- t(x) %*% x # expected information
         # this increment version solves for (beta.2-beta.1) without inverting Information
         if (method == "N") { # NR
                 increm <- - solve(ldd, score.2) # solve for increment
@@ -81,17 +92,20 @@ while ((i <= maxit) & (diff.beta > eps1) & (diff.like > eps2)) {
         if (method == "F") { # Fisher's Scoring
                 increm <- solve( EI, score.2) # solve for increment
         }
+        if (method == "GD") { # NR
+                increm <- score.2 # solve for increment
+        }
         # line search for improved step size
         llike.alpha.step <- rep(NA, length(alpha.step)) # init llike for line search
         for (i.alpha.step in 1:length(alpha.step)) {
-                llike.alpha.step[i.alpha.step] <- f.exp.l(y, X,beta.2 + alpha.step[i.alpha.step] * increm)
+                llike.alpha.step[i.alpha.step] <- llik.log(y, x,beta.2 + alpha.step[i.alpha.step] * increm)
         }
         # step size index for max increase in log-likelihood (if tie, [1] takes first)
         ind.max.alpha.step <- which(llike.alpha.step == max(llike.alpha.step))[1]
         beta.1 <- beta.2 + alpha.step[ind.max.alpha.step] * increm # update beta
         diff.beta <- sqrt(sum((beta.1 - beta.2)^2)) # Euclidean distance
         llike.2 <- llike.1 # age likelihood value
-        llike.1 <- f.exp.l(y, X, beta.1) # update loglikelihood
+        llike.1 <- llik.log(y, x, beta.1) # update loglikelihood
         diff.like <- abs(llike.1 - llike.2) # diff
         # iteration history
         NR.hist <- rbind(NR.hist, c(i, diff.beta, diff.like, llike.1, alpha.step[ind.max.alpha.step]))
@@ -115,6 +129,62 @@ return(out)
 ```
 
 
+## Using Steepest ascent without line search
+
+```{r}
+steep.ascent <- function(x,y,beta.1,alpha,eps1 = 1e-6, eps2 = 1e-7, maxit = 100){
+ 
+  beta.2 <- runif(ncol(x),min = 0,max=1)
+  diff.beta <- sqrt(sum((beta.1 - beta.2)^2)) # Euclidean distance
+  llike.1 <- llik.log(y, X, beta.1) # update loglikelihood
+  llike.2 <- llik.log(y, X, beta.2) # update loglikelihood
+  diff.like <- abs(llike.1 - llike.2) # diff
+
+  if (is.nan(diff.like)) { diff.like <- 1e9 }
+
+  i <- 1 # initial iteration index
+  NR.hist <- data.frame(i, diff.beta, diff.like, llike.1, step.size = 1) # iteration history
+  beta.hist <- matrix(beta.1, nrow = 1)
+  while ((i <= maxit) & (diff.beta > eps1) & (diff.like > eps2)) {
+        i <- i + 1 # increment iteration
+        # update beta
+        beta.2 <- beta.1 # old guess is current guess
+        
+        beta.1 <- beta.2 + alpha * score.function(x,y,beta.2) # update beta
+        diff.beta <- sqrt(sum((beta.1 - beta.2)^2)) # Euclidean distance
+        llike.2 <- llike.1 # age likelihood value
+        llike.1 <- llik.log(y, X, beta.1) # update loglikelihood
+        diff.like <- abs(llike.1 - llike.2) # diff
+        NR.hist <- rbind(NR.hist, c(i, diff.beta, diff.like, llike.1))
+        beta.hist <- rbind(beta.hist, matrix(beta.1, nrow = 1))
+  }
+out <- list()
+out$beta.MLE <- beta.1
+out$iter <- i - 1
+out$NR.hist <- NR.hist
+out$beta.hist <- beta.hist
+
+if (!(diff.beta > eps1) & !(diff.like > eps2)) {
+        out$note <- paste("Absolute convergence of", eps1, "for betas and",eps2, "for log-likelihood satisfied")
+}
+if (i > maxit) {
+        out$note <- paste("Exceeded max iterations of ", maxit)
+}
+return(out)
+}
+```
+
+## Using the optim function
+
+```{r}
+model <- optim(beta.init, fn=llik.log,x=X, y=y, 
+              control=list(fnscale=-1, maxit=10000),method="BFGS")
+
+model
+
+```
+We obtain the same $\beta$ coefficients 
+
 
 ## Predictions
 
@@ -126,23 +196,30 @@ y <- matrix(eleuk$weeks, ncol = 1)
 X.temp <- eleuk$lwbc
 # design matrix
 X <- matrix(c(rep(1,n), X.temp), nrow = n)
+X[,2] <- X[,2] - mean(X[,2])
 colnames(X) <- c("Int", "lwbc")
 r <- ncol(X) - 1 # number of regression coefficients - 1
 # initial beta vector
 beta.init <- c(0, rep(0, r))
 # fit betas using our exponential regression NR/FS function
-out.NR <- f.exp.NR(X, y, beta.init, "N")
-out.NR
+out.F <- fisher.scoring(X, y, beta.init, "F")
+out.F
+out.GD <- fisher.scoring(X,y,beta.init, method = 'GD')
+out.GD
+out.NR <- fisher.scoring(X,y,beta.init, method = 'N')
 ```
 
+Using the line search methods greatly diminuish the number of iterations before convergence since it continuously looks for the optimal step size $\alpha$. 
+
+Overall Newton-Rhapson methods converges the fastest to the optimal solution
 
 ```{r}
-f.exp.pred <- function(x, beta) {
+pred.prob <- function(x, beta) {
 # Exponential regression, predicted values
 # univariate x, vector beta
 # exponential log-likelihood
-y <- beta[1] * exp(beta[2] * (x[,2] - colMeans(x)[2]))
-#y <- exp(beta[1] + beta[2] * x)
+
+y <- exp(beta[1] + beta[2] * x)
 return(y)
 }
 ```
@@ -152,12 +229,12 @@ return(y)
 # Plot at top of HW
 library(ggplot2)
 data <- data.frame(x=X)
-pred.values <- data.frame(x=eleuk$lwbc,y=eleuk$weeks,y.pred=f.exp.pred(X,out.FS$beta.MLE))
+pred.values <- data.frame(x=eleuk$lwbc,y=eleuk$weeks,y.pred=pred.prob(X,out.NR$beta.MLE)[,2])
 
-p <- ggplot(eleuk, aes(x = lwbc, y = weeks)) +
+p <- ggplot(pred.values, aes(x = x, y = y)) +
   scale_y_continuous(breaks = 52*c(0,1,2,3)) +
- # geom_line(data = pred.values,inherit.aes = FALSE)+
-  stat_function(fun = f.exp.pred, args = list(out.FS$beta.MLE),inherit.aes = F,color = 'red') +
+  geom_line(aes(x=x,y=y.pred),inherit.aes = FALSE,color='red')+
+  #stat_function(fun = pred.prob, args = list(out.NR$beta.MLE),inherit.aes = F,color = 'red') +
   geom_point(alpha = 0.5, size = 3) +
   labs(title = "Leukemia: weeks survival by log white blood cell count")
 
