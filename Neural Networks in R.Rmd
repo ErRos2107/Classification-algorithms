@@ -13,17 +13,63 @@ knitr::opts_chunk$set(echo = TRUE)
 
 In this section we will implement an L-layer neural network from scratch and use it for classification tasks. 
 
-
-```{r cars}
-summary(cars)
+To load a dataset that is stored on an H5 file we can use the rhdf5 package from Bioconductor as follow:
+```{r}
+source("http://bioconductor.org/biocLite.R") # Install package from bioconductor source
+biocLite("rhdf5")
+library(rhdf5) # load package 
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+Guidelines:
+*List the objects within the file to find the data group you want to read:
+```{r,eval=False} 
+#h5ls("train_catvnoncat.h5")
+f <- "train_catvnoncat.h5"
+# view the structure of the H5 file
+h5ls(f, all = TRUE)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+*Read the HDF5 data:
+```{r,eval=False}
+load.dataset <- function(){
+#original training set
+train.orig.x <- array(data=h5read("train_catvnoncat.h5","train_set_x"),dim = c(209,64,64,3))
+train.orig.y <- array(data=h5read("train_catvnoncat.h5","train_set_y"),dim = c(1,209))
+
+
+# original test set
+test.orig.x <- array(data=h5read("test_catvnoncat.h5","test_set_x"),dim = c(50,64,64,3))
+test.orig.y <- array(data=h5read("test_catvnoncat.h5","test_set_y"),dim=c(1,50))
+
+# classes 
+
+classes = array(data=h5read("test_catvnoncat.h5","list_classes"))
+output <- list(train.orig.x=train.orig.x,train.orig.y=train.orig.y,
+               test.orig.x=test.orig.x,test.orig.y=test.orig.y,classes=classes)
+return(output)
+}
+
+```
+```{r}
+original.data <- load.dataset()
+```
+
+*and to inspect the structure:
+```{r,eval=False}
+str(train.orig.x)
+```
+## The data 
+
+To represent color images, the red, green and blue channels (RGB) must be specified for each pixel, and so the pixel value is actually a vector of three numbers ranging from 0 to 255.
+
+One common preprocessing step in machine learning is to center and standardize your dataset, meaning that you substract the mean of the whole numpy array from each example, and then divide each example by the standard deviation of the whole numpy array. But for picture datasets, it is simpler and more convenient and works almost as well to just divide every row of the dataset by 255 (the maximum value of a pixel channel).
+
+Let's standardize our dataset:
+```{r}
+
+```
+
+
+
+
+
