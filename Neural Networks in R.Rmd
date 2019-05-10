@@ -15,9 +15,10 @@ In this section we will implement an L-layer neural network from scratch and use
 
 To load a dataset that is stored on an H5 file we can use the rhdf5 package from Bioconductor as follow:
 ```{r}
-source("http://bioconductor.org/biocLite.R") # Install package from bioconductor source
-biocLite("rhdf5")
+#source("http://bioconductor.org/biocLite.R") # Install package from bioconductor source
+#biocLite("rhdf5")
 library(rhdf5) # load package 
+library(countcolors)  # plot (rgb array)
 ```
 
 Guidelines:
@@ -32,20 +33,20 @@ h5ls(f, all = TRUE)
 *Read the HDF5 data:
 ```{r,eval=False}
 load.dataset <- function(){
-#original training set
-train.orig.x <- array(data=h5read("train_catvnoncat.h5","train_set_x"),dim = c(209,64,64,3))
-train.orig.y <- array(data=h5read("train_catvnoncat.h5","train_set_y"),dim = c(1,209))
+#Standardised training set
+train.x <- aperm(h5read("train_catvnoncat.h5","train_set_x"))/255
+train.y <- t(h5read("train_catvnoncat.h5","train_set_y"))
 
 
-# original test set
-test.orig.x <- array(data=h5read("test_catvnoncat.h5","test_set_x"),dim = c(50,64,64,3))
-test.orig.y <- array(data=h5read("test_catvnoncat.h5","test_set_y"),dim=c(1,50))
+# Standardised test set
+test.x <- aperm(h5read("test_catvnoncat.h5","test_set_x"))/255
+test.y <- t(h5read("test_catvnoncat.h5","test_set_y"))
 
 # classes 
 
-classes = array(data=h5read("test_catvnoncat.h5","list_classes"))
-output <- list(train.orig.x=train.orig.x,train.orig.y=train.orig.y,
-               test.orig.x=test.orig.x,test.orig.y=test.orig.y,classes=classes)
+classes = h5read("test_catvnoncat.h5","list_classes")
+output <- list(train.x=train.x,train.y=train.y,
+               test.x=test.x,test.y=test.y,classes=classes)
 return(output)
 }
 
@@ -64,11 +65,25 @@ To represent color images, the red, green and blue channels (RGB) must be specif
 
 One common preprocessing step in machine learning is to center and standardize your dataset, meaning that you substract the mean of the whole numpy array from each example, and then divide each example by the standard deviation of the whole numpy array. But for picture datasets, it is simpler and more convenient and works almost as well to just divide every row of the dataset by 255 (the maximum value of a pixel channel).
 
-Let's standardize our dataset:
+Let's visualise the 25th image:
 ```{r}
-
+index <- 24
+m <- original.data$train.x[index,,,]
+result <-as.numeric( t(original.data$train.y[index]))
+cat.noncat <- original.data$classes[result+1]
+plotArrayAsImage(m, main = paste("y= ",result,", it is a ",cat.noncat,sep = "" ))
+                 
 ```
 
+We will be performing a multitude of matrix multiplication so having in mind the dimensions of the data training and test set will be helpful.
+```{r}
+m.train <- dim(original.data$train.x)[1]
+m.test <- dim(original.data$test.x)[1]
+num.px <- dim(original.data$train.x)[2]
+```
+
+Remember that train.set.x is an array of shape (m.train, num.px, num.px, 3).
+To feed the images to the neural network, the dimension of the array needs to be flatten. The dimension of the new array will have the shape (num.px $*$ num.px $*$  3, 1).
 
 
 
