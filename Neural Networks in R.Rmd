@@ -10,6 +10,7 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+# Part 1 - Logistic Regression 
 
 ## Introduction
 
@@ -409,5 +410,15 @@ test.set.y <- original.data$test.y
 d <-  model(train.x.flatten, train.set.y, test.x.flatten, test.set.y, num.iterations = 3000, learning.rate = 0.005, print.cost = T)
 ```
 
+## Part 2 - L- layer Neural Network
+
+```{r}
+# Example of a picture that was wrongly classified.
+index = 6
+m <- original.data$test.x[index,,,]
+result <-as.numeric(d$Y.prediction.test[1,index])
+cat.noncat <- original.data$classes[result+1]
+plotArrayAsImage(m, main = paste("y = ",result, ", the model predicted that it is a ", cat.noncat," image",sep = ""))
+```
 
 
