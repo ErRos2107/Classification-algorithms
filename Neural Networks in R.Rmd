@@ -2,7 +2,9 @@
 title: "Classification algorithm - Neural Networks"
 author: "Eric Roseren"
 date: "5/9/2019"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
@@ -12,6 +14,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Introduction
 
 In this section we will implement an L-layer neural network from scratch and use it for classification tasks. 
+
+We will first start with a 1 layer Neural Network with a sigmoid activation function so that it is equivalent to a standart logistic regression function. 
+
+We will then procede to increase the number of layer and unit cell to obtain a L- layer Neural Network with appropriate activation function and regularization method (L-2 norm, dropout) to reduce overfitting.
 
 To load a dataset that is stored on an H5 file we can use the rhdf5 package from Bioconductor as follow:
 ```{r}
@@ -23,7 +29,7 @@ library(countcolors)  # plot (rgb array)
 
 Guidelines:
 *List the objects within the file to find the data group you want to read:
-```{r,eval=False} 
+```{r} 
 #h5ls("train_catvnoncat.h5")
 f <- "train_catvnoncat.h5"
 # view the structure of the H5 file
@@ -31,7 +37,7 @@ h5ls(f, all = TRUE)
 ```
 
 *Read the HDF5 data:
-```{r,eval=False}
+```{r}
 load.dataset <- function(){
 #Standardised training set
 train.x <- aperm(h5read("train_catvnoncat.h5","train_set_x"))/255
@@ -55,10 +61,7 @@ return(output)
 original.data <- load.dataset()
 ```
 
-*and to inspect the structure:
-```{r,eval=False}
-str(train.orig.x)
-```
+
 ## The data 
 
 To represent color images, the red, green and blue channels (RGB) must be specified for each pixel, and so the pixel value is actually a vector of three numbers ranging from 0 to 255.
@@ -67,7 +70,7 @@ One common preprocessing step in machine learning is to center and standardize y
 
 Let's visualise the 25th image:
 ```{r}
-index <- 23
+index <- 25
 m <- original.data$train.x[index,,,]
 result <-as.numeric( t(original.data$train.y[index]))
 cat.noncat <- original.data$classes[result+1]
@@ -107,9 +110,9 @@ $$ J = \frac{1}{m} \sum_{i=1}^m \mathcal{L}(a^{(i)}, y^{(i)})\tag{6}$$
 ## 4 - Building the parts of our algorithm ## 
 
 The main steps for building a Neural Network are:
-*1. Define the model structure (such as number of input features) 
-*2. Initialize the model's parameters
-*3. Loop:
+1. Define the model structure (such as number of input features) 
+2. Initialize the model's parameters
+3. Loop:
     - Calculate current loss (forward propagation)
     - Calculate current gradient (backward propagation)
     - Update parameters (gradient descent)
@@ -161,9 +164,9 @@ initialise.to.zero <- function(shape){
 
 
 Forward Propagation:
-* get X
-* $$A = \sigma(w^T X + b) = (a^{(1)}, a^{(2)}, ..., a^{(m-1)}, a^{(m)})$$
-* You calculate the cost function: $$J = \frac{1}{m}\sum_{i=1}^{m}y^{(i)}\log(a^{(i)})+(1-y^{(i)})\log(1-a^{(i)})$$
+We get X:
+ $$A = \sigma(w^T X + b) = (a^{(1)}, a^{(2)}, ..., a^{(m-1)}, a^{(m)})$$
+ We calculate the cost function: $$J = \frac{1}{m}\sum_{i=1}^{m}y^{(i)}\log(a^{(i)})+(1-y^{(i)})\log(1-a^{(i)})$$
 
 Here are the two formulas : 
 
@@ -234,9 +237,9 @@ optimize <- function(w, b, X, Y, num.iterations, learning.rate, print.cost = F){
     b -- bias, a scalar
     X -- data of shape (num_px * num_px * 3, number of examples)
     Y -- true label vector (containing 0 if non-cat, 1 if cat), of shape (1, number of examples)
-    num_iterations -- number of iterations of the optimization loop
-    learning_rate -- learning rate of the gradient descent update rule
-    print_cost -- True to print the loss every 100 steps
+    num.iterations -- number of iterations of the optimization loop
+    learning.rate -- learning rate of the gradient descent update rule
+    print.cost -- True to print the loss every 100 steps
     
     Returns:
     params -- dictionary containing the weights w and bias b
@@ -255,9 +258,9 @@ optimize <- function(w, b, X, Y, num.iterations, learning.rate, print.cost = F){
         
         
         # Cost and gradient calculation (≈ 1-4 lines of code)
-      
-        grads <-  propagate(w, b, X, Y)$grads
-        cost <-  propagate(w,b,X,Y)$cost
+        temp.val <- propagate(w, b, X, Y)
+        grads <-  temp.val$grads
+        cost <-  temp.val$cost
 
         # Retrieve derivatives from grads
         dw <-  grads$dw
@@ -278,10 +281,10 @@ optimize <- function(w, b, X, Y, num.iterations, learning.rate, print.cost = F){
         }
     }
     
-    params = list(w= w,b=b)
-    grads = list(dw= dw,db= db)
+    params <-  list(w= w,b=b)
+    grads <-  list(dw= dw,db= db)
     
-    out <- list(params,grads)
+    out <- list(params=params,grads=grads,cost=cost)
     
     return (out)
 }
@@ -308,7 +311,7 @@ predict <- function(w, b, X){
     X -- data of size (num_px * num_px * 3, number of examples)
     
     Returns:
-    Y_prediction -- a numpy array (vector) containing all predictions (0/1) for the examples in X
+    Y.prediction -- a numpy array (vector) containing all predictions (0/1) for the examples in X
     "
     
     m <-  dim(X)[2]
@@ -346,7 +349,65 @@ predict(w,b,X)
 We will now see how the overall model is structured by putting together all the building blocks (functions implemented in the previous parts) together, in the right order.
 
 ```{r}
+model <- function(X.train, Y.train, X.test, Y.test, num.iterations = 2000, learning.rate = 0.5, print.cost = F){
+    "
+    Builds the logistic regression model by calling the function you've implemented previously
+    
+    Arguments:
+    X.train -- training set represented by a numpy array of shape (num_px * num_px * 3, m_train)
+    Y.train -- training labels represented by a numpy array (vector) of shape (1, m_train)
+    X.test -- test set represented by a numpy array of shape (num_px * num_px * 3, m_test)
+    Y.test -- test labels represented by a numpy array (vector) of shape (1, m_test)
+    num.iterations -- hyperparameter representing the number of iterations to optimize the parameters
+    learning.rate -- hyperparameter representing the learning rate used in the update rule of optimize()
+    print.cost -- Set to true to print the cost every 100 iterations
+    
+    Returns:
+    d -- dictionary containing information about the model.
+    "
+    
+    # initialize parameters with zeros (≈ 1 line of code)
+    m <- dim(X.train)[1]
+    w <- initialise.to.zero(m)$w
+    b <- initialise.to.zero(m)$b
 
+    # Gradient descent (≈ 1 line of code)
+    temp <- optimize(w, b, X.train, Y.train, num.iterations, learning.rate,print.cost = T)
+    parameters <- temp$params
+    grads <-  temp$grads
+    costs <-  temp$costs
+      
+    
+    # Retrieve parameters w and b from dictionary "parameters"
+    w <-  parameters$w
+    b <-  parameters$b
+    
+    # Predict test/train set examples (≈ 2 lines of code)
+    Y.prediction.test <-  predict(w,b,X.test)
+    Y.prediction.train <-  predict(w,b,X.train)
+
+
+    # Print train/test Errors
+    print(paste("train accuracy: ",(100 - mean(abs(Y.prediction.train - Y.train)) * 100),sep = ""))
+    print(paste("test accuracy:  ",(100 - mean(abs(Y.prediction.test - Y.test)) * 100),sep = ""))
+
+    
+    out <-  list(cost=costs,
+         Y.prediction.test= Y.prediction.test, 
+         Y.prediction.train = Y.prediction.train, 
+         w = w, b = b,
+         learning.rate = learning.rate,
+         num.iterations= num.iterations)
+    
+    return (out)
+}
 ```
+```{r}
+train.set.y <- original.data$train.y
+test.set.y <- original.data$test.y
+
+d <-  model(train.x.flatten, train.set.y, test.x.flatten, test.set.y, num.iterations = 3000, learning.rate = 0.005, print.cost = T)
+```
+
 
 
