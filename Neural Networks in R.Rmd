@@ -67,12 +67,11 @@ One common preprocessing step in machine learning is to center and standardize y
 
 Let's visualise the 25th image:
 ```{r}
-index <- 24
+index <- 23
 m <- original.data$train.x[index,,,]
 result <-as.numeric( t(original.data$train.y[index]))
 cat.noncat <- original.data$classes[result+1]
-plotArrayAsImage(m, main = paste("y= ",result,", it is a ",cat.noncat,sep = "" ))
-                 
+plotArrayAsImage(m, main = paste("y= ",result,", it is a ",cat.noncat," image ",sep = "" ))
 ```
 
 We will be performing a multitude of matrix multiplication so having in mind the dimensions of the data training and test set will be helpful.
@@ -83,8 +82,271 @@ num.px <- dim(original.data$train.x)[2]
 ```
 
 Remember that train.set.x is an array of shape (m.train, num.px, num.px, 3).
-To feed the images to the neural network, the dimension of the array needs to be flatten. The dimension of the new array will have the shape (num.px $*$ num.px $*$  3, 1).
+To feed the images to the neural network, the dimension of the array needs to be flatten. The dimension of the new array will have the following shape:
+(num.px $*$ num.px $*$  3, 1).
+```{r}
+
+train.x.flatten <- matrix(data = aperm(original.data$train.x),num.px*num.px*3,m.train)
+test.x.flatten <- matrix(data = aperm(original.data$test.x),num.px*num.px*3,m.test)
+```
+
+## General Architecture of the learning algorithm
+
+The following Figure explains why Logistic Regression is actually a very simple Neural Network!
+![Logistic Regression Architecture](/users/eric/Documents/R programming/Classification-algorithms/figure/LogReg_kiank.png)
+**Mathematical expression of the algorithm**:
+
+For one example $x^{(i)}$:
+$$z^{(i)} = w^T x^{(i)} + b \tag{1}$$
+$$\hat{y}^{(i)} = a^{(i)} = sigmoid(z^{(i)})\tag{2}$$ 
+$$ \mathcal{L}(a^{(i)}, y^{(i)}) =  - y^{(i)}  \log(a^{(i)}) - (1-y^{(i)} )  \log(1-a^{(i)})\tag{3}$$
+
+The cost is then computed by summing over all training examples:
+$$ J = \frac{1}{m} \sum_{i=1}^m \mathcal{L}(a^{(i)}, y^{(i)})\tag{6}$$
+
+## 4 - Building the parts of our algorithm ## 
+
+The main steps for building a Neural Network are:
+*1. Define the model structure (such as number of input features) 
+*2. Initialize the model's parameters
+*3. Loop:
+    - Calculate current loss (forward propagation)
+    - Calculate current gradient (backward propagation)
+    - Update parameters (gradient descent)
+    
+```{r}
+# Sigmoid function
+
+sigmoid <- function(z){
+  "
+    Compute the sigmoid of z
+
+    Arguments:
+    z -- A scalar or array of any size.
+
+    Return:
+    s -- sigmoid(z)
+    "
+  s <- 1/(1+exp(-z))
+  return(s)
+}
+```
+```{r}
+print (paste("sigmoid([0, 2]) = ", as.numeric(sigmoid(array(data=c(0,2)))),sep = ""))
+```
+### 4.2 - Initializing parameters
+We need to initialise the parameters w and b to zero:
+
+```{r}
+initialise.to.zero <- function(shape){
+  "
+    This function creates a vector of zeros of dimension (shape, 1) for w and initializes b to 0.
+    
+    Argument:
+    dim -- size of the w vector we want (or number of parameters in this case)
+    
+    Returns:
+    w -- initialized vector of shape (dim, 1)
+    b -- initialized scalar (corresponds to the bias)
+    "
+ w <- matrix(data = rep(0,shape),nrow = shape,ncol = 1) 
+ b <- 0
+ result <- list(w=w,b=b)
+ return(result)
+}
+```
+
+### 4.3 - Forward and Backward propagation
 
 
+
+Forward Propagation:
+* get X
+* $$A = \sigma(w^T X + b) = (a^{(1)}, a^{(2)}, ..., a^{(m-1)}, a^{(m)})$$
+* You calculate the cost function: $$J = \frac{1}{m}\sum_{i=1}^{m}y^{(i)}\log(a^{(i)})+(1-y^{(i)})\log(1-a^{(i)})$$
+
+Here are the two formulas : 
+
+$$ \frac{\partial J}{\partial w} = \frac{1}{m}X(A-Y)^T\tag{7}$$
+$$ \frac{\partial J}{\partial b} = \frac{1}{m} \sum_{i=1}^m (a^{(i)}-y^{(i)})\tag{8}$$
+```{r}
+propagate <- function(w, b, X, Y){
+    "
+    Implement the cost function and its gradient for the propagation explained above
+
+    Arguments:
+    w -- weights, a numpy array of size (num_px * num_px * 3, 1)
+    b -- bias, a scalar
+    X -- data of size (num_px * num_px * 3, number of examples)
+    Y -- true label vector (containing 0 if non-cat, 1 if cat) of size (1, number of examples)
+
+    Return:
+    cost -- negative log-likelihood cost for logistic regression
+    dw -- gradient of the loss with respect to w, thus same shape as w
+    db -- gradient of the loss with respect to b, thus same shape as b
+    
+
+    "
+    
+    m <-  dim(X)[2]
+    
+    # FORWARD PROPAGATION (FROM X TO COST)
+    A <- sigmoid((t(w) %*% X)+b)                                    # compute activation
+    cost <- (-1/m)*sum(Y*log(A)+(1-Y)*log(1-A))                                 # compute cost
+
+    # BACKWARD PROPAGATION (TO FIND GRAD)
+    dw <-  (1/m)*X %*% t((A-Y))
+    db <-  (1/m)*sum(A-Y)
+
+    stopifnot(dim(dw) == dim(w))
+    
+    #cost <-  np.squeeze(cost)
+    
+    grads = list(dw=dw,db=db)
+    
+    results <- list(grads=grads,cost=cost)
+    
+    return (results)
+}
+```
+
+
+```{r}
+w <- array(data = c(1,2),dim = c(2,1))
+b <- 2
+X <- array(data =c(1,3,2,4,-1,-3.2),dim = c(2,3))
+Y <- array(data =c(1,0,1),dim = c(1,3))
+
+propagate(w,b,X,Y)
+```
+
+### 4.4 - Optimization
+You have initialized your parameters.You are also able to compute a cost function and its gradient.
+Now, you want to update the parameters using gradient descent.
+
+```{r}
+optimize <- function(w, b, X, Y, num.iterations, learning.rate, print.cost = F){
+    "
+    This function optimizes w and b by running a gradient descent algorithm
+    
+    Arguments:
+    w -- weights, a numpy array of size (num_px * num_px * 3, 1)
+    b -- bias, a scalar
+    X -- data of shape (num_px * num_px * 3, number of examples)
+    Y -- true label vector (containing 0 if non-cat, 1 if cat), of shape (1, number of examples)
+    num_iterations -- number of iterations of the optimization loop
+    learning_rate -- learning rate of the gradient descent update rule
+    print_cost -- True to print the loss every 100 steps
+    
+    Returns:
+    params -- dictionary containing the weights w and bias b
+    grads -- dictionary containing the gradients of the weights and bias with respect to the cost function
+    costs -- list of all the costs computed during the optimization, this will be used to plot the learning curve.
+    
+    Tips:
+    You basically need to write down two steps and iterate through them:
+        1) Calculate the cost and the gradient for the current parameters. Use propagate().
+        2) Update the parameters using gradient descent rule for w and b.
+    "
+    
+    costs = NULL
+    
+    for (i in 1:num.iterations){
+        
+        
+        # Cost and gradient calculation (≈ 1-4 lines of code)
+      
+        grads <-  propagate(w, b, X, Y)$grads
+        cost <-  propagate(w,b,X,Y)$cost
+
+        # Retrieve derivatives from grads
+        dw <-  grads$dw
+        db <-  grads$db
+        
+        # update rule (≈ 2 lines of code)
+        
+        w <-  w-learning.rate*dw
+        b <-  b-learning.rate*db
+
+        # Record the costs
+        if (i %% 100 == 0){
+            costs[i] <- cost
+        }
+        # Print the cost every 100 training iterations
+        if (print.cost & i %% 100 == 0){
+            print (paste("Cost after iteration ", i,": ",cost,sep = ""))
+        }
+    }
+    
+    params = list(w= w,b=b)
+    grads = list(dw= dw,db= db)
+    
+    out <- list(params,grads)
+    
+    return (out)
+}
+```
+
+```{r}
+optimize(w, b, X, Y, num.iterations= 100, learning.rate = 0.009, print.cost = F)
+```
+
+The previous function will output the learned w and b. We are able to use w and b to predict the labels for a dataset X. To implement the `predict()` function. There are two steps to computing predictions:
+
+1. Calculate $$\hat{Y} = A = \sigma(w^T X + b)$$
+
+2. We convert the entries of a into 0 (if activation <= 0.5) or 1 (if activation > 0.5), stores the predictions in a vector `Y_prediction`.We can use an `if`/`else` statement in a `for` loop (though there is also a way to vectorize this). 
+
+```{r}
+predict <- function(w, b, X){
+    "
+    Predict whether the label is 0 or 1 using learned logistic regression parameters (w, b)
+    
+    Arguments:
+    w -- weights, a numpy array of size (num_px * num_px * 3, 1)
+    b -- bias, a scalar
+    X -- data of size (num_px * num_px * 3, number of examples)
+    
+    Returns:
+    Y_prediction -- a numpy array (vector) containing all predictions (0/1) for the examples in X
+    "
+    
+    m <-  dim(X)[2]
+    Y.prediction <-  matrix(data=rep(0,m),ncol = m)
+    
+
+    # Compute vector "A" predicting the probabilities of a cat being present in the picture
+
+    A <- sigmoid((t(w) %*% X)+b)                                    # compute activation
+
+    for (i in 1:m){
+        
+        # Convert probabilities A[1,i] to actual predictions p[1,i]
+        if (A[1,i]> 0.5){
+            Y.prediction[1,i] <- 1
+        }
+        else{
+            Y.prediction[1,i] <- 0
+        }
+    }
+
+    return (Y.prediction)
+}
+```
+
+```{r}
+w <- array(data = c(0.1124579,0.23106775),dim = c(2,1))
+b <- -0.3
+X <- array(data =c(1,1.2,-1.1,2,-3.2,0.1),dim = c(2,3))
+
+predict(w,b,X)
+```
+
+## 5 - Merge all functions into a model
+We will now see how the overall model is structured by putting together all the building blocks (functions implemented in the previous parts) together, in the right order.
+
+```{r}
+
+```
 
 
